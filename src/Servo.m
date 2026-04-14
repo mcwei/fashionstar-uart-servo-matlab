@@ -19,6 +19,10 @@ classdef Servo < handle
             'DAMPING', hex2dec('09'), ...
             'SET_ORIGIN', hex2dec('17'), ...
             'RESET_TURN', hex2dec('11'), ...
+            'BEGIN_ASYNC', hex2dec('12'), ...
+            'END_ASYNC', hex2dec('13'), ...
+            'MONITOR', hex2dec('16'), ...
+            'SYNC', hex2dec('19'), ...
             'SET_MULTI', hex2dec('0D') ...
         );
 
@@ -297,6 +301,184 @@ classdef Servo < handle
         function resetTurn(obj, id)
 
             packet = obj.buildPacket(obj.CMD.RESET_TURN, id, []);
+
+            obj.send(packet);
+
+        end
+
+        %% 异步写入
+        function beginAsync(obj)
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.BEGIN_ASYNC ...
+                0 ...        % LEN = 0
+                0]);         % checksum占位
+
+            packet(end) = obj.checksum(packet(1:end-1));
+
+            obj.send(packet);
+
+        end
+
+        %% 异步执行
+        function endAsync(obj, mode)
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.END_ASYNC ...
+                1 ...            % LEN = 1（只有mode）
+                uint8(mode) ...
+                0]);
+
+            packet(end) = obj.checksum(packet(1:end-1));
+
+            obj.send(packet);
+
+        end
+
+        %% 数据监控
+        function data = readMonitor(obj, id)
+
+            packet = obj.buildPacket(obj.CMD.MONITOR, id, []);
+            obj.send(packet);
+
+            resp = obj.readPacket();
+
+            if isempty(resp)
+                data = [];
+                return;
+            end
+
+            d = resp;
+
+            data.id = d(6);
+
+            data.voltage = typecast(uint8(d(7:8)),'int16');
+            data.current = typecast(uint8(d(9:10)),'int16');
+            data.power   = typecast(uint8(d(11:12)),'int16');
+
+            raw_temp = typecast(uint8(d(13:14)),'int16');
+
+            % 温度转换
+            temp = double(raw_temp);
+            data.temperature = 1 / (log(temp/(4096-temp))/3435 + 1/(273.15+25)) - 273.15;
+
+            data.status = d(15);
+
+            angle_raw = typecast(uint8(d(16:19)),'int32');
+            data.angle = double(angle_raw)/10;
+
+            data.turns = typecast(uint8(d(20:21)),'int16');
+
+        end
+        %% 同步控制-单圈角度
+        function syncSetAngle(obj, ids, angles, times, powers)
+
+            n = length(ids);
+
+            payload = [ ...
+                uint8(obj.CMD.SET_ANGLE) ... % mode
+                uint8(7) ...                 % block size
+                uint8(n) ...
+            ];
+
+            for i = 1:n
+
+                angle = int16(angles(i)*10);
+                t = uint16(times(i));
+                p = uint16(powers(i));
+
+                payload = [payload ...
+                    uint8(ids(i)) ...
+                    typecast(angle,'uint8') ...
+                    typecast(t,'uint8') ...
+                    typecast(p,'uint8')];
+            end
+
+            % ===== 手动构造（关键）=====
+            LEN = length(payload);
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.SYNC ...
+                LEN ...
+                payload ...
+                0]);
+
+            packet(end) = obj.checksum(packet(1:end-1));
+
+            obj.send(packet);
+
+        end
+
+        %% 同步控制-数据监控
+        function datas = syncReadMonitor(obj, ids)
+
+            n = length(ids);
+
+            payload = [ ...
+                uint8(obj.CMD.MONITOR) ...
+                uint8(1) ...
+                uint8(n) ...
+                uint8(ids)
+            ];
+
+            LEN = length(payload);
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.SYNC ...
+                LEN ...
+                payload ...
+                0]);
+
+            packet(end) = obj.checksum(packet(1:end-1));
+
+            obj.send(packet);
+
+            % ===== 接收逻辑不变 =====
+            datas = [];
+            for i = 1:n
+                datas(i) = obj.readMonitor(ids(i));
+            end
+
+        end
+
+        %% 同步控制-多圈控制
+        function syncSetAngleMulti(obj, ids, angles, times, powers)
+
+            n = length(ids);
+
+            payload = [ ...
+                uint8(obj.CMD.SET_MULTI) ... % mode = 0D
+                uint8(11) ...                % block size
+                uint8(n) ...
+            ];
+
+            for i = 1:n
+
+                angle = int32(angles(i)*10);
+                t = uint32(times(i));
+                p = uint16(powers(i));
+
+                payload = [payload ...
+                    uint8(ids(i)) ...
+                    typecast(angle,'uint8') ...
+                    typecast(t,'uint8') ...
+                    typecast(p,'uint8')];
+            end
+
+            LEN = length(payload);
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.SYNC ...
+                LEN ...
+                payload ...
+                0]);
+
+            packet(end) = obj.checksum(packet(1:end-1));
 
             obj.send(packet);
 
