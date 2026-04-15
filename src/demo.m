@@ -78,5 +78,24 @@ times = [1000 1000 1000];
 powers = [8000 8000 8000];
 servo.syncSetAngleMulti(ids, angles, times, powers);
 
+
+
+
+% ===== 批量监控 =====
+datas = servo.syncReadMonitor(ids);
+
+% ===== 输出 =====
+for i = 1:length(datas)
+
+
+    fprintf('\n=== Servo %d ===\n', datas(i).id);
+    fprintf('Angle     : %.1f °\n', datas(i).angle);
+    fprintf('Turns     : %d\n', datas(i).turns);
+    fprintf('Temp      : %.2f ℃\n', datas(i).temperature);
+    fprintf('Voltage   : %.2f V\n', datas(i).voltage/1000);
+    fprintf('Current   : %.3f A\n', datas(i).current/1000);
+    fprintf('Power     : %.2f W\n', datas(i).power/1000);
+
+end
 % ====== 释放 ======
 delete(servo);

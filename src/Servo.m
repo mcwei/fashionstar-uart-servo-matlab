@@ -353,6 +353,88 @@ classdef Servo < handle
 
         end
 
+        function datas = syncReadMonitor(obj, ids)
+
+            n = length(ids);
+
+            % ===== 发送SYNC =====
+            payload = [ ...
+                uint8(obj.CMD.MONITOR) ...
+                uint8(1) ...
+                uint8(n) ...
+                uint8(ids)
+            ];
+
+            packet = uint8([ ...
+                obj.HEADER ...
+                obj.CMD.SYNC ...
+                length(payload) ...
+                payload ...
+                0]);
+
+            packet(end) = obj.checksum(packet(1:end-1));
+
+            obj.send(packet);
+
+            % ===== 初始化结果 =====
+            datas = [];
+            count = 0;
+
+            % ===== 超时控制 =====
+            t0 = tic;
+
+            while true
+
+                % 超时退出
+                if toc(t0) > obj.timeout
+                    break;
+                end
+
+                resp = obj.readPacket();
+
+                if isempty(resp)
+                    continue;
+                end
+
+                d = uint8(resp);
+
+                % 长度保护
+                if length(d) < 20
+                    continue;
+                end
+
+                % ===== 解析 =====
+                try
+                    count = count + 1;
+
+                    data.id = d(5);
+
+                    data.voltage = typecast(d(6:7),'int16');
+                    data.current = typecast(d(8:9),'int16');
+                    data.power   = typecast(d(10:11),'int16');
+
+                    raw_temp = typecast(d(12:13),'int16');
+                    temp = double(raw_temp);
+
+                    data.temperature = ...
+                        1 / (log(temp/(4096-temp))/3435 + 1/(273.15+25)) - 273.15;
+
+                    data.status = d(14);
+
+                    angle_raw = typecast(d(15:18),'int32');
+                    data.angle = double(angle_raw)/10;
+
+                    data.turns = typecast(d(19:20),'int16');
+
+                    datas = [datas data]; %#ok<AGROW>
+
+                catch
+                    % 忽略坏包
+                end
+
+            end
+
+        end
     end
 
 end
