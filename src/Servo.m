@@ -347,30 +347,27 @@ classdef Servo < handle
 
             if isempty(resp)
                 data = [];
+                warning('readMonitor: No response');
                 return;
             end
 
-            d = resp;
-
-            data.id = d(6);
-
-            data.voltage = typecast(uint8(d(7:8)),'int16');
-            data.current = typecast(uint8(d(9:10)),'int16');
-            data.power   = typecast(uint8(d(11:12)),'int16');
-
-            raw_temp = typecast(uint8(d(13:14)),'int16');
-
-            % 温度转换
-            temp = double(raw_temp);
-            data.temperature = 1 / (log(temp/(4096-temp))/3435 + 1/(273.15+25)) - 273.15;
-
-            data.status = d(15);
-
-            angle_raw = typecast(uint8(d(16:19)),'int32');
-            data.angle = double(angle_raw)/10;
-
-            data.turns = typecast(uint8(d(20:21)),'int16');
-
+            d = uint8(resp);
+            try
+                data.id = d(5);
+                data.voltage = typecast(uint8(d(6:7)),'int16');
+                data.current = typecast(uint8(d(8:9)),'int16');
+                data.power   = typecast(uint8(d(10:11)),'int16');
+                raw_temp = typecast(uint8(d(12:13)),'int16');
+                % 温度转换
+                temp = double(raw_temp);
+                data.temperature = 1 / (log(temp/(4096-temp))/3435 + 1/(273.15+25)) - 273.15;
+                data.status = d(14);
+                angle_raw = typecast(uint8(d(15:18)),'int32');
+                data.angle = double(angle_raw)/10;
+                data.turns = typecast(uint8(d(19:20)),'int16');
+            catch
+                data = [];
+            end
         end
         %% 同步控制-单圈角度
         function syncSetAngle(obj, ids, angles, times, powers)
@@ -396,7 +393,7 @@ classdef Servo < handle
                     typecast(p,'uint8')];
             end
 
-            % ===== 手动构造（关键）=====
+            % ===== 手动构造=====
             LEN = length(payload);
 
             packet = uint8([ ...
