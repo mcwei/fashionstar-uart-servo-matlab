@@ -1,4 +1,4 @@
-# 📘 Fashion Star Uart Servo MATLAB SDK 使用说明
+# Fashion Star Uart Servo MATLAB SDK 使用说明
 
 ## 1.  SDK简介
 
@@ -8,13 +8,16 @@
 - 多圈角度控制
 - 单圈角度读取
 - 多圈角度读取
-- 阻尼/停止控制
-- 原点设置 / 重置圈数
+- 阻尼模式
+- 停止控制
+- 原点设置
+- 重置圈数
 - 异步指令
-- 同步指令-角度控制
 - 数据监控
+- 同步指令-角度控制
+- 同步指令-数据监控
 
-------
+
 
 ## 2.  环境要求
 
@@ -22,7 +25,7 @@
 - 串口工具箱（内置）
 - Windows / Linux / Mac 均可
 
-------
+
 
 ## 3.  文件结构
 
@@ -31,7 +34,7 @@ Servo.m          % 核心SDK类
 demo.m     % 示例
 ```
 
-------
+
 
 ## 4.  快速开始
 
@@ -56,7 +59,7 @@ ok = servo.ping(1);
 
 ------
 
-### 4.3 控制舵机角度（单圈）
+### 4.3 单圈角度控制
 
 ```
 servo.setAngle(id, angle, time, power);
@@ -79,7 +82,7 @@ servo.setAngle(1, 90, 500, 2000);
 
 ------
 
-### 4.4 读取角度
+### 4.4 单圈角度读取
 
 ```
 angle = servo.readAngle(id);
@@ -92,7 +95,7 @@ angle = servo.readAngle(id);
 
 ------
 
-### 4.5 多圈控制
+### 4.5 多圈角度控制
 
 ```
 servo.setAngleMulti(id, angle, time, power);
@@ -106,7 +109,7 @@ servo.setAngleMulti(1, 1080, 1000, 3000);
 
 ------
 
-### 4.6 多圈读取
+### 4.6 多圈角度读取
 
 ```
 [angle, turns] = servo.readAngleMulti(id);
@@ -121,7 +124,7 @@ servo.setAngleMulti(1, 1080, 1000, 3000);
 
 ------
 
-### 4.7 停止舵机
+### 4.7 停止模式
 
 ```
 servo.stop(id, mode, power);
@@ -137,7 +140,7 @@ servo.damping(id, power);
 
 ------
 
-### 4.9 设置原点
+### 4.9 原点设置
 
 ```
 servo.setOrigin(id);
@@ -184,6 +187,23 @@ angles = [1080 720 -360];
 times = [1000 1000 1000];
 powers = [8000 8000 8000];
 servo.syncSetAngleMulti(ids, angles, times, powers);
+
+% ===== 批量监控 =====
+datas = servo.syncReadMonitor(ids);
+
+% ===== 输出 =====
+for i = 1:length(datas)
+
+
+    fprintf('\n=== Servo %d ===\n', datas(i).id);
+    fprintf('Angle     : %.1f °\n', datas(i).angle);
+    fprintf('Turns     : %d\n', datas(i).turns);
+    fprintf('Temp      : %.2f ℃\n', datas(i).temperature);
+    fprintf('Voltage   : %.2f V\n', datas(i).voltage/1000);
+    fprintf('Current   : %.3f A\n', datas(i).current/1000);
+    fprintf('Power     : %.2f W\n', datas(i).power/1000);
+
+end
 ```
 
 ------
@@ -216,7 +236,7 @@ end
 delete(servo);
 ```
 
-### 
+
 
 ## 6.  注意事项（重要）
 
